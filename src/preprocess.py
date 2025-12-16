@@ -1,29 +1,40 @@
 import pandas as pd
 import numpy as np 
 from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, OrdinalEncoder, OneHotEncoder
 from sklearn.compose import make_column_transformer, make_column_selector
 
-X_train = pd.read_csv("../data/X_train.csv")
-X_test = pd.read_csv("../data/X_test.csv")
-y_train = pd.read_csv("../data/y_train.csv")
-y_test = pd.read_csv("../data/y_test.csv")
+
+X_train = pd.read_csv("data/X_train.csv")
+X_test = pd.read_csv("data/X_test.csv")
+y_train = pd.read_csv("data/y_train.csv")
+y_test = pd.read_csv("data/y_test.csv")
+
+
+# Convert numeric columns to proper types (they may have been read as strings)
+numeric_cols = ['Age', 'BodyweightKg', 'BestSquatKg', 'BestDeadliftKg']
+for col in numeric_cols:
+    X_train[col] = pd.to_numeric(X_train[col], errors='coerce')
+    X_test[col] = pd.to_numeric(X_test[col], errors='coerce')
+
+y_train['BestBenchKg'] = pd.to_numeric(y_train['BestBenchKg'], errors='coerce')
+y_test['BestBenchKg'] = pd.to_numeric(y_test['BestBenchKg'], errors='coerce')
 
 
 # clean training data
 
 # drop null entries by 'Age'
 train_null_mask = X_train['Age'].notna() # creates boolean mask for non-null
-X_train_clean = X_train[train_null_mask]
-y_train_clean = y_train[train_null_mask]
+X_train_clean = X_train[train_null_mask].reset_index(drop=True)
+y_train_clean = y_train[train_null_mask].reset_index(drop=True)
 
 test_null_mask = X_test['Age'].notna()
-X_test_clean = X_test[test_null_mask]
-y_test_clean = y_test[test_null_mask]
+X_test_clean = X_test[test_null_mask].reset_index(drop=True)
+y_test_clean = y_test[test_null_mask].reset_index(drop=True)
 
-# remove name column (isn't useful)
-X_train_clean.drop(columns=['Name'], inplace=True)
-X_test_clean.drop(columns=['Name'], inplace=True)
+# remove name and playerId column (isn't useful)
+X_train_clean.drop(columns=['Name', 'playerId'], inplace=True)
+X_test_clean.drop(columns=['Name', 'playerId'], inplace=True)
 
 
 # remove negative kg entry values
@@ -32,35 +43,35 @@ X_test_clean.drop(columns=['Name'], inplace=True)
 train_valid_mask = (
     (X_train_clean['BestDeadliftKg'] >= 0) &
     (X_train_clean['BestSquatKg'] >= 0) &
-    (X_train_clean['BodyWeightKg'] >= 0) &
-    (y_train_clean['BestBenchKg'] >= 0)
+    (X_train_clean['BodyweightKg'] >= 0) &
+    (y_train_clean['BestBenchKg'].values >= 0)
 )
 
-X_train_clean = X_train_clean[train_valid_mask]
-y_train_clean = y_train_clean[train_valid_mask]
+X_train_clean = X_train_clean[train_valid_mask].reset_index(drop=True)
+y_train_clean = y_train_clean[train_valid_mask].reset_index(drop=True)
 
-# test set 
+# test set
 test_valid_mask = (
     (X_test_clean['BestDeadliftKg'] >= 0) &
     (X_test_clean['BestSquatKg'] >= 0) &
-    (X_test_clean['BodyWeightKg'] >= 0) &
-    (y_test_clean['BestBenchKg'] >= 0)
+    (X_test_clean['BodyweightKg'] >= 0) &
+    (y_test_clean['BestBenchKg'].values >= 0)
 )
 
-X_test_clean = X_test_clean[test_valid_mask]
-y_test_clean = y_test_clean[test_valid_mask]
+X_test_clean = X_test_clean[test_valid_mask].reset_index(drop=True)
+y_test_clean = y_test_clean[test_valid_mask].reset_index(drop=True)
 
 # next feature engineering, lets add in the some ratios and weight classes/age groups
 
 # bodyweight to lift ratios 
 
 # training set
-X_train_clean['SquatBWRatio'] = X_train_clean['BestSquatKg'] / X_train_clean['BodyWeightKg']
-X_train_clean['DeadliftBWRatio'] = X_train_clean['BestDeadliftKg'] / X_train_clean['BodyWeightKg']
+X_train_clean['SquatBWRatio'] = X_train_clean['BestSquatKg'] / X_train_clean['BodyweightKg']
+X_train_clean['DeadliftBWRatio'] = X_train_clean['BestDeadliftKg'] / X_train_clean['BodyweightKg']
 
 # test set
-X_test_clean['SquatBWRatio'] = X_test_clean['BestSquatKg'] / X_test_clean['BodyWeightKg']
-X_test_clean['DeadliftBWRatio'] = X_test_clean['BestDeadliftKg'] / X_test_clean['BodyWeightKg']
+X_test_clean['SquatBWRatio'] = X_test_clean['BestSquatKg'] / X_test_clean['BodyweightKg']
+X_test_clean['DeadliftBWRatio'] = X_test_clean['BestDeadliftKg'] / X_test_clean['BodyweightKg']
 
 # next, add in age group bins
 def create_age_groups(age):
@@ -82,8 +93,8 @@ def create_age_groups(age):
         return 'Master4'
 
 # apply to column
-X_train_clean['AgeGroup'] = X_train_clean['age'].apply(create_age_groups)
-X_test_clean['AgeGroup'] = X_test_clean['age'].apply(create_age_groups)
+X_train_clean['AgeGroup'] = X_train_clean['Age'].apply(create_age_groups)
+X_test_clean['AgeGroup'] = X_test_clean['Age'].apply(create_age_groups)
 
 # IPF and USAPL official weight classes for male and female
 # def create_weight_class_male(weight):
@@ -151,19 +162,30 @@ X_test_clean['SquatToDeadliftRatio'] = X_test_clean['BestSquatKg'] / X_test_clea
 X_train_clean['Sex_Binary'] = (X_train_clean['Sex'] == 'Male').astype(int)
 X_test_clean['Sex_Binary'] = (X_test_clean['Sex'] == 'Male').astype(int)
 
+X_train_clean = X_train_clean.drop(columns=['Sex'])
+X_test_clean = X_test_clean.drop(columns='Sex')
+
 # For Ordinal encoder
 age_order = [['Youth', 'Sub-Junior', 'Junior', 'Open', 'Master1', 'Master2', 'Master3', 'Master4']]
 
-
 num_pipeline = make_pipeline(StandardScaler())
 
+# preprocessing pipeline for encoding and scaling
 preprocessor = make_column_transformer(
     (num_pipeline, make_column_selector(dtype_include=np.float64)),
-    ()
-
+    (OrdinalEncoder(categories=age_order, handle_unknown='use_encoded_value', unknown_value=-1), ['AgeGroup']),
+    ('passthrough', ['Sex_Binary']),
+    (OneHotEncoder(drop='first', handle_unknown = 'ignore'), ['Equipment']),
+    remainder='drop' # this drops unused categorical columns
 )
 
+# fit and transform to preprocessor
+X_train_preprocessed = pd.DataFrame(preprocessor.fit_transform(X_train_clean))
+X_test_preprocessed = pd.DataFrame(preprocessor.transform(X_test_clean)) # only using transform here to avoid bias and data leakage
 
+# export for use in train.py
+X_train_preprocessed.to_csv("preprocessed_data/x_train.csv", index=False)
+y_train_clean[['BestBenchKg']].to_csv("preprocessed_data/y_train.csv", index=False)
 
-
-
+X_test_preprocessed.to_csv("preprocessed_data/x_test.csv", index=False)
+y_test_clean[['BestBenchKg']].to_csv("preprocessed_data/y_test.csv", index=False)

@@ -10,12 +10,15 @@ from sklearn.model_selection import cross_val_score, RandomizedSearchCV
 import matplotlib.pyplot as plt
 from scipy.stats import randint 
 from xgboost import XGBRegressor
+import joblib
 
 
 X_train = pd.read_csv("preprocessed_data/X_train.csv")
 X_test = pd.read_csv("preprocessed_data/X_test.csv")
 y_train = pd.read_csv("preprocessed_data/y_train.csv")
 y_test = pd.read_csv("preprocessed_data/y_test.csv")
+feature_names_df = pd.read_csv("preprocessed_data/feature_names.csv")
+feature_names = feature_names_df['feature_name'].tolist()
 
 
 
@@ -186,6 +189,22 @@ print(f"XGBoost Test R² score: {xgbr.score(X_test, y_test)}")
 
 
 
+
+# Which features were actually important
+print("\nFeature Importances:")
+# Sort features by importance
+importance_df = pd.DataFrame({
+    'feature': feature_names,
+    'importance': xgbr.feature_importances_
+}).sort_values('importance', ascending=False)
+
+for i, row in importance_df.iterrows():
+    print(f"{row['feature']}: {row['importance']:.4f}")
+
+
+
+# Save best model
+joblib.dump(value= xgbr, filename="models/final_model.pkl")
 
 
 

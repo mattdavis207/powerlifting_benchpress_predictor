@@ -1,0 +1,13 @@
+feature_name
+pipeline__Age
+pipeline__BodyweightKg
+pipeline__BestSquatKg
+pipeline__BestDeadliftKg
+pipeline__SquatBWRatio
+pipeline__DeadliftBWRatio
+pipeline__SquatToDeadliftRatio
+ordinalencoder__AgeGroup
+passthrough__Sex_Binary
+onehotencoder__Equipment_Raw
+onehotencoder__Equipment_Single-ply
+onehotencoder__Equipment_Wraps

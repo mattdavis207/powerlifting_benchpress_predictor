@@ -3,6 +3,7 @@ import numpy as np
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler, OrdinalEncoder, OneHotEncoder
 from sklearn.compose import make_column_transformer, make_column_selector
+import joblib
 
 
 X_train = pd.read_csv("data/X_train.csv")
@@ -183,9 +184,20 @@ preprocessor = make_column_transformer(
 X_train_preprocessed = pd.DataFrame(preprocessor.fit_transform(X_train_clean))
 X_test_preprocessed = pd.DataFrame(preprocessor.transform(X_test_clean)) # only using transform here to avoid bias and data leakage
 
+# Get feature names from preprocessor
+feature_names = preprocessor.get_feature_names_out()
+
 # export for use in train.py
 X_train_preprocessed.to_csv("preprocessed_data/x_train.csv", index=False)
 y_train_clean[['BestBenchKg']].to_csv("preprocessed_data/y_train.csv", index=False)
 
 X_test_preprocessed.to_csv("preprocessed_data/x_test.csv", index=False)
 y_test_clean[['BestBenchKg']].to_csv("preprocessed_data/y_test.csv", index=False)
+
+# Save feature names for later use in model interpretation
+pd.DataFrame({'feature_name': feature_names}).to_csv("preprocessed_data/feature_names.csv", index=False)
+print(f"\nSaved {len(feature_names)} feature names to preprocessed_data/feature_names.csv")
+
+# Save the preprocessor for use in prediction
+joblib.dump(preprocessor, "models/preprocessor.pkl")
+print("Saved preprocessor to models/preprocessor.pkl")

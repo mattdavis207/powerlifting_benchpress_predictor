@@ -4,10 +4,12 @@ import joblib
 from sklearn.linear_model import LinearRegression, RidgeCV
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import GradientBoostingRegressor
 # from sklearn.metrics import root_mean_squared_error
 from sklearn.model_selection import cross_val_score, RandomizedSearchCV
 import matplotlib.pyplot as plt
 from scipy.stats import randint 
+from xgboost import XGBRegressor
 
 
 X_train = pd.read_csv("preprocessed_data/X_train.csv")
@@ -53,30 +55,45 @@ print(f"Ridge Regression Test R²: {ridge_reg.score(X_test, y_test):.4f}")
 
 
 # Decision Tree Regression
-dec_tree_reg = DecisionTreeRegressor()
+dec_tree_reg = DecisionTreeRegressor(max_depth=15, criterion='squared_error')
+dec_tree_reg.fit(X_train, y_train)
 
-param_distribution = dict(
-    criterion = ['squared_error', 'friedman_mse', 'absolute_error', 'poisson'],
-    max_depth = randint(1, 100)
-)
+# param_distribution = dict(
+#     criterion = ['squared_error', 'friedman_mse', 'absolute_error', 'poisson'],
+#     max_depth = randint(1, 100)
+# )
 
 # Next let's find best hyperparameters for Decision Tree
-rscv = RandomizedSearchCV(dec_tree_reg, param_distributions=param_distribution, scoring='neg_mean_squared_error', n_iter=10, cv=5, random_state=42, verbose=2)
-rscv.fit(X_train, y_train.values.ravel())  # Flatten y_train to 1D array
+# rscv = RandomizedSearchCV(dec_tree_reg, param_distributions=param_distribution, scoring='neg_mean_squared_error', n_iter=10, cv=5, random_state=42, verbose=2)
+# rscv.fit(X_train, y_train.values.ravel())  # Flatten y_train to 1D array
 
 print(f"\nDecision Tree Results")
-print(f"Best parameters: {rscv.best_params_}")
-print(f"Best MSE: {-rscv.best_score_:.2f}")
-print(f"Best RMSE: {np.sqrt(-rscv.best_score_):.2f}")
-
-# Evaluate on test set
-best_tree = rscv.best_estimator_
-print(f"Test R² score: {best_tree.score(X_test, y_test):.4f}")
+print(f"Training Score: {dec_tree_reg.score(X_train, y_train)}")
+print(f"Test Score: {dec_tree_reg.score(X_test, y_test):.2f}")
+print(f"Test RMSE: {np.sqrt(dec_tree_reg.score(X_test, y_test)):.2f}")
 
 
-# Random Forest Regression (usually better than single Decision Tree)
+
+
+# # RandomizedSearchCV for Random Forest
+# param_dist = {
+#     'n_estimators': [100, 200, 300],
+#     'max_depth': [10, 15, 20, None],
+#     'min_samples_split': [2, 5, 10],
+#     'min_samples_leaf': [1, 2, 4]
+# }
+
+# rf_search = RandomizedSearchCV(param_distributions=param_dist, estimator=RandomForestRegressor(random_state=42), n_iter=20, cv=5, scoring='neg_mean_squared_error', random_state=42, verbose=2)
+# rf_search.fit(X_train, y_train.values.ravel())
+
+# print(f"Best params: {rf_search.best_params_}")
+# print(f"Best R² score: {rf_search.best_score_}")
+
+
+
+# Random Forest Regression
 print(f"\nRandom Forest Regression")
-rf_reg = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+rf_reg = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1, min_samples_split=2 ,min_samples_leaf=4, max_depth=10)
 rf_reg.fit(X_train, y_train.values.ravel())
 
 print(f"Training R² score: {rf_reg.score(X_train, y_train):.4f}")
@@ -88,13 +105,65 @@ rf_cv_scores = cross_val_score(rf_reg, X_train, y_train.values.ravel(),
 print(f"Cross-validation RMSE: {np.sqrt(-rf_cv_scores.mean()):.2f}")
 
 
+# Let's try some Boosting, start with GradientBoostingRegressor
+gbrt = GradientBoostingRegressor(max_depth=2, n_estimators=500, n_iter_no_change=10, learning_rate=0.05, random_state=42)
+gbrt.fit(X_train, y_train.values.ravel())  # Flatten y_train to avoid warning
+print(f"\nGradient Boosted Regression Trees")
+print(f"Training R² score: {gbrt.score(X_train, y_train):.4f}")
+print(f"Test R² score: {gbrt.score(X_test, y_test):.4f}\n")
+
+
+# param_dist = {
+#     'n_estimators': [100, 200, 300, 500],
+#     'max_depth': [3, 5, 7, 10],
+#     'learning_rate': [0.01, 0.05, 0.1, 0.2],
+#     'subsample': [0.6, 0.8, 1.0],
+#     'colsample_bytree': [0.6, 0.8, 1.0]
+# }
+
+
+# xgbr_search = RandomizedSearchCV(
+#     XGBRegressor(random_state=42, n_jobs=-1),
+#     param_distributions=param_dist,
+#     n_iter=20,
+#     cv=5,
+#     scoring='neg_mean_squared_error',
+#     random_state=42,
+#     verbose=1
+# )
+
+# xgbr_search.fit(X_train, y_train.values.ravel())
+
+# print(f"Best params: {xgbr_search.best_params_}")
+# print(f"Best rest R² score: {xgbr_search.best_score_}")
+
+
+# Lastly, lets try XGBoost
+xgbr = XGBRegressor(
+    n_estimators=300,
+    max_depth=5,
+    learning_rate=0.05,
+    subsample=0.8,  # Fixed typo: was sub_sample
+    random_state=42,
+    n_jobs=-1
+)
+
+xgbr.fit(X_train, y_train.values.ravel())
+print("XGBoost Regression Trees")
+print(f"XGBoost Train R² score: {xgbr.score(X_train, y_train)}")
+print(f"XGBoost Test R² score: {xgbr.score(X_test, y_test)}")
+
+
+
 # Final Comparison
-print(f"\n{'='*50}")
-print(f"Final Model Comparison")
+print(f"\nFinal Model Comparison")
 print(f"Linear Regression Test R²:    {lin_reg.score(X_test, y_test):.4f}")
 print(f"Ridge Regression Test R²:     {ridge_reg.score(X_test, y_test):.4f}")
-print(f"Decision Tree Test R²:        {best_tree.score(X_test, y_test):.4f}")
+print(f"Decision Tree Test R²:        {dec_tree_reg.score(X_test, y_test):.4f}")
 print(f"Random Forest Test R²:        {rf_reg.score(X_test, y_test):.4f}")
+print(f"Gradient Boosted Regression Trees R²: {gbrt.score(X_test, y_test):.4f}")
+print(f"XGBoost Test R² score: {xgbr.score(X_test, y_test)}")
+
 
 
 # y_pred_tree = dec_tree_reg.predict(X_test)

@@ -5,7 +5,7 @@ from sklearn.linear_model import LinearRegression, RidgeCV
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.ensemble import GradientBoostingRegressor
-# from sklearn.metrics import root_mean_squared_error
+from sklearn.metrics import root_mean_squared_error
 from sklearn.model_selection import cross_val_score, RandomizedSearchCV
 import matplotlib.pyplot as plt
 from scipy.stats import randint 
@@ -42,10 +42,13 @@ print(f"Average RMSE: {np.sqrt(-cross_val_scores.mean()):.2f}")
 ridge_reg = RidgeCV(alphas=[6.25, 6.5, 6, 6.15, 6.35], store_cv_results=True, cv=None)
 ridge_reg.fit(X_train, y_train)
 
+y_pred= ridge_reg.predict(X_test)
+
 print(f"\nRidge Regression Results")
 print(f"Best alpha: {ridge_reg.alpha_}")
 print(f"Training R² score: {ridge_reg.score(X_train, y_train):.4f}")
 print(f"Test R² score: {ridge_reg.score(X_test, y_test):.4f}")
+print(f"Test RMSE: {root_mean_squared_error(y_test, y_pred)}kgs")
 
 # Cross-validation scores
 ridge_cv_scores = cross_val_score(ridge_reg, X_test, y_test, scoring="neg_mean_squared_error", cv=5)
@@ -60,6 +63,8 @@ print(f"Ridge Regression Test R²: {ridge_reg.score(X_test, y_test):.4f}")
 # Decision Tree Regression
 dec_tree_reg = DecisionTreeRegressor(max_depth=15, criterion='squared_error')
 dec_tree_reg.fit(X_train, y_train)
+
+y_pred = dec_tree_reg.predict(X_test)
 
 # param_distribution = dict(
 #     criterion = ['squared_error', 'friedman_mse', 'absolute_error', 'poisson'],
@@ -110,10 +115,14 @@ print(f"Cross-validation RMSE: {np.sqrt(-rf_cv_scores.mean()):.2f}")
 
 # Let's try some Boosting, start with GradientBoostingRegressor
 gbrt = GradientBoostingRegressor(max_depth=2, n_estimators=500, n_iter_no_change=10, learning_rate=0.05, random_state=42)
-gbrt.fit(X_train, y_train.values.ravel())  # Flatten y_train to avoid warning
+gbrt.fit(X_train, y_train.values.ravel())
+y_pred = gbrt.predict(X_test)
+
+
 print(f"\nGradient Boosted Regression Trees")
 print(f"Training R² score: {gbrt.score(X_train, y_train):.4f}")
 print(f"Test R² score: {gbrt.score(X_test, y_test):.4f}\n")
+print(f"Test RMSE: {root_mean_squared_error(y_test, y_pred)}kgs")
 
 
 # param_dist = {
@@ -152,9 +161,12 @@ xgbr = XGBRegressor(
 )
 
 xgbr.fit(X_train, y_train.values.ravel())
+xy_pred= xgbr.predict(X_test)
+
 print("XGBoost Regression Trees")
 print(f"XGBoost Train R² score: {xgbr.score(X_train, y_train)}")
 print(f"XGBoost Test R² score: {xgbr.score(X_test, y_test)}")
+print(f"Test RMSE: {root_mean_squared_error(y_test, y_pred)}kgs")
 
 
 
@@ -165,7 +177,8 @@ print(f"Ridge Regression Test R²:     {ridge_reg.score(X_test, y_test):.4f}")
 print(f"Decision Tree Test R²:        {dec_tree_reg.score(X_test, y_test):.4f}")
 print(f"Random Forest Test R²:        {rf_reg.score(X_test, y_test):.4f}")
 print(f"Gradient Boosted Regression Trees R²: {gbrt.score(X_test, y_test):.4f}")
-print(f"XGBoost Test R² score: {xgbr.score(X_test, y_test)}")
+print(f"XGBoost Test R² score: {xgbr.score(X_test, y_test)}\n")
+print(f"Test RMS for best model (XGBoost): {root_mean_squared_error(y_test, y_pred)}kgs")
 
 
 
